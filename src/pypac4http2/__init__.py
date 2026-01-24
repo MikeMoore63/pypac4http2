@@ -7,7 +7,7 @@ try:
     __version__ = version("pypac4http2")
 except PackageNotFoundError:  # pragma: no cover
     # package is not installed
-    __version__ = "0.1.0"
+    __version__ = "unknown"
 
 from pypac4http2.http_pac import HttpPac
 
