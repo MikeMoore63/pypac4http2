@@ -1,5 +1,7 @@
 import json
 import sys
+import pytest
+import socks
 from io import StringIO
 from unittest.mock import patch, MagicMock
 from pypac4http2.cli import main
@@ -54,15 +56,14 @@ def test_cli_pac_url(monkeypatch):
 
 def test_cli_no_pac(monkeypatch):
     with patch("pypac4http2.cli.get_pac", return_value=None):
-        captured_stderr = StringIO()
-        monkeypatch.setattr(sys, "stderr", captured_stderr)
+        # With no PAC, it should fallback to DIRECT (if no env vars)
+        captured_output = StringIO()
+        monkeypatch.setattr(sys, "stdout", captured_output)
 
         with patch("sys.argv", ["pypac4http2", "http://example.com"]):
-            with pytest.raises(SystemExit) as e:
-                main()
-            assert e.value.code == 1
+            main()
 
-        assert "No PAC file found" in captured_stderr.getvalue()
+        assert "Proxy choice: DIRECT" in captured_output.getvalue()
 
 
 def test_cli_error(monkeypatch):
@@ -81,3 +82,23 @@ def test_cli_error(monkeypatch):
 import pytest  # needed for pytest.raises
 
 import pytest  # needed for pytest.raises
+
+
+def test_cli_env_fallback(monkeypatch):
+    with patch("pypac4http2.cli.get_pac", return_value=None):
+        with patch("httplib2.proxy_info_from_environment") as mock_env_proxy:
+            expected_proxy = MagicMock()
+            expected_proxy.proxy_host = "envproxy"
+            expected_proxy.proxy_port = 8080
+            expected_proxy.proxy_type = socks.PROXY_TYPE_HTTP
+            mock_env_proxy.return_value = expected_proxy
+
+            captured_output = StringIO()
+            monkeypatch.setattr(sys, "stdout", captured_output)
+
+            with patch("sys.argv", ["pypac4http2", "http://example.com"]):
+                main()
+
+            output = captured_output.getvalue()
+            assert "Proxy choice: ENV (envproxy:8080)" in output
+            assert '"proxy_host": "envproxy"' in output

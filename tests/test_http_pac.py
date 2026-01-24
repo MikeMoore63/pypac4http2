@@ -1,5 +1,6 @@
 import httplib2
 import socks
+from unittest.mock import patch, MagicMock
 from pypac4http2.http_pac import HttpPac
 
 
@@ -35,9 +36,11 @@ def test_http_pac_direct_resolution(mock_pac_file, mock_httplib2_http):
     http = HttpPac(pac=mock_pac_file)
 
     # Test proxy resolution for other.com (DIRECT)
-    http.request("http://other.com")
-
-    assert http.proxy_info is None
+    # Even if environment variables exist, they should be ignored because PAC said DIRECT
+    with patch("httplib2.proxy_info_from_environment") as mock_env:
+        http.request("http://other.com")
+        assert http.proxy_info is None
+        mock_env.assert_not_called()
 
 
 def test_http_pac_initialization():
@@ -70,4 +73,14 @@ def test_http_pac_auto_discovery(mock_httplib2_http):
         mock_get_pac.assert_called_once_with()
 
 
-from unittest.mock import patch, MagicMock
+def test_http_pac_env_fallback(mock_httplib2_http):
+    with patch("pypac4http2.http_pac.get_pac", return_value=None):
+        with patch("httplib2.proxy_info_from_environment") as mock_env_proxy:
+            expected_proxy = httplib2.ProxyInfo(socks.PROXY_TYPE_HTTP, "envproxy", 8080)
+            mock_env_proxy.return_value = expected_proxy
+
+            http = HttpPac()
+            http.request("http://example.com")
+
+            assert http.proxy_info == expected_proxy
+            mock_env_proxy.assert_called_once()
