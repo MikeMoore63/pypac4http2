@@ -23,15 +23,25 @@ def main():
         else:
             pac = get_pac()
 
-        if not pac:
-            print("No PAC file found or discovered.", file=sys.stderr)
-            sys.exit(1)
-
         from urllib.parse import urlparse
+        import httplib2
 
         host = urlparse(args.url).hostname or ""
-        proxy_str = pac.find_proxy_for_url(args.url, host)
-        proxy_info = pac_result_to_proxy_info(proxy_str)
+        proxy_info = None
+
+        if pac:
+            proxy_str = pac.find_proxy_for_url(args.url, host)
+            if proxy_str and proxy_str.upper() != "DIRECT":
+                proxy_info = pac_result_to_proxy_info(proxy_str)
+            else:
+                proxy_str = "DIRECT"
+        else:
+            # Fallback to environment variables only if NO PAC FILE FOUND
+            proxy_info = httplib2.proxy_info_from_environment()
+            if proxy_info:
+                proxy_str = f"ENV ({proxy_info.proxy_host}:{proxy_info.proxy_port})"
+            else:
+                proxy_str = "DIRECT"
 
         print(f"Proxy choice: {proxy_str}")
 
