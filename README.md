@@ -39,15 +39,32 @@ response, content = http.request("http://example.org")
 
 `HttpPac` is designed to be a drop-in replacement for `httplib2.Http`, making it ideal for use with the [Google API Python Client](https://github.com/googleapis/google-api-python-client).
 
+In a typical enterprise environment, you may also need your authentication flow (which often uses [google-auth](https://github.com/googleapis/google-auth-library-python) and `requests`) to respect the same PAC settings. You can use `pypac.PACSession` alongside `HttpPac`.
+
 ```python
+import os
 from googleapiclient.discovery import build
+import google.auth
+from google.auth.transport.requests import Request
+from pypac import PACSession
 from pypac4http2 import HttpPac
 
-# Initialize HttpPac for auto-discovery (or via PAC_URL)
-http = HttpPac()
+# 1. Use PACSession for authentication flows that use 'requests'
+# pypac.PACSession doesn't natively check PAC_URL, so we pass it explicitly if set
+pac_url = os.environ.get("PAC_URL")
+auth_session = PACSession(url=pac_url) if pac_url else PACSession()
+auth_request = Request(session=auth_session)
 
-# Build the service using the proxy-aware http object
-service = build('drive', 'v3', http=http)
+# 2. Get default credentials using the proxy-aware request
+credentials, project = google.auth.default(request=auth_request)
+
+# 3. Refresh credentials using the proxy-aware session
+credentials.refresh(auth_request)
+
+# 4. Use HttpPac for the Google API service calls (which use 'httplib2')
+# Both will respect PAC settings (e.g. via PAC_URL environment variable)
+http = HttpPac()
+service = build('drive', 'v3', http=http, credentials=credentials)
 
 # All API calls will now automatically resolve proxies via PAC
 files = service.files().list().execute()
