@@ -1,3 +1,4 @@
+import os
 import httplib2
 from urllib.parse import urlparse
 from pypac import get_pac
@@ -21,6 +22,7 @@ class HttpPac(httplib2.Http):
         proxy_info=None,
         pac=None,
         pac_url=None,
+        pac_js=None,
         **kwargs,
     ):
         """
@@ -28,7 +30,8 @@ class HttpPac(httplib2.Http):
 
         Args:
             pac: Optional pypac.PACFile instance.
-            pac_url: Optional URL to PAC file. If not provided, uses OS auto-discovery.
+            pac_url: Optional URL to PAC file.
+            pac_js: Optional string containing PAC JavaScript code.
             All other args are passed to httplib2.Http.
         """
         super().__init__(
@@ -42,13 +45,18 @@ class HttpPac(httplib2.Http):
 
         self._pac = pac
         self._pac_url = pac_url
+        self._pac_js = pac_js
         self._pac_file_instance = None
 
         # Load PAC file if provided or auto-discover
         if self._pac:
             self._pac_file_instance = self._pac
+        elif self._pac_js:
+            self._pac_file_instance = PACFile(self._pac_js)
         elif self._pac_url:
             self._pac_file_instance = get_pac(url=self._pac_url)
+        elif os.environ.get("PAC_URL"):
+            self._pac_file_instance = get_pac(url=os.environ.get("PAC_URL"))
         else:
             # This will be resolved on first request if still None
             # or we can try to get it now

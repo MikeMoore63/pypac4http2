@@ -84,3 +84,29 @@ def test_http_pac_env_fallback(mock_httplib2_http):
 
             assert http.proxy_info == expected_proxy
             mock_env_proxy.assert_called_once()
+
+
+def test_http_pac_with_js(mock_httplib2_http):
+    pac_js = """
+    function FindProxyForURL(url, host) {
+        return "PROXY jsproxy:8080";
+    }
+    """
+    http = HttpPac(pac_js=pac_js)
+    http.request("http://example.com")
+
+    assert http.proxy_info is not None
+    assert http.proxy_info.proxy_host == "jsproxy"
+    assert http.proxy_info.proxy_port == 8080
+
+
+def test_http_pac_with_env_var(mock_httplib2_http):
+    with patch("pypac4http2.http_pac.get_pac") as mock_get_pac:
+        mock_pac = MagicMock()
+        mock_pac.find_proxy_for_url.return_value = "DIRECT"
+        mock_get_pac.return_value = mock_pac
+
+        with patch.dict("os.environ", {"PAC_URL": "http://env.pac"}):
+            http = HttpPac()
+            http.request("http://example.com")
+            mock_get_pac.assert_called_once_with(url="http://env.pac")

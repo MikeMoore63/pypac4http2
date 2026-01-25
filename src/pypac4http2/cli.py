@@ -1,3 +1,4 @@
+import os
 import argparse
 import json
 import sys
@@ -13,13 +14,24 @@ def main():
         "--pac-url",
         help="Optional URL to PAC file. If not provided, uses OS auto-discovery.",
     )
+    parser.add_argument(
+        "--pac-js",
+        help="Optional string containing PAC JavaScript code.",
+    )
     parser.add_argument("url", help="The target URL to resolve the proxy for.")
 
     args = parser.parse_args()
 
     try:
+        pac = None
         if args.pac_url:
             pac = get_pac(url=args.pac_url)
+        elif args.pac_js:
+            from pypac.parser import PACFile
+
+            pac = PACFile(args.pac_js)
+        elif os.environ.get("PAC_URL"):
+            pac = get_pac(url=os.environ.get("PAC_URL"))
         else:
             pac = get_pac()
 
