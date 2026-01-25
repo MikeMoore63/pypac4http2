@@ -22,9 +22,35 @@ from pypac4http2 import HttpPac
 http = HttpPac()
 response, content = http.request("http://example.org")
 
-# Or specify a PAC URL
+# Specify a PAC URL
 http = HttpPac(pac_url="http://internal.corp/proxy.pac")
 response, content = http.request("http://example.org")
+
+# Provide PAC as a JavaScript string
+pac_js = "function FindProxyForURL(url, host) { return 'PROXY proxy:8080'; }"
+http = HttpPac(pac_js=pac_js)
+response, content = http.request("http://example.org")
+
+# The library also supports the PAC_URL environment variable:
+# export PAC_URL=http://internal.corp/proxy.pac
+```
+
+### Usage with Google API Client
+
+`HttpPac` is designed to be a drop-in replacement for `httplib2.Http`, making it ideal for use with the [Google API Python Client](https://github.com/googleapis/google-api-python-client).
+
+```python
+from googleapiclient.discovery import build
+from pypac4http2 import HttpPac
+
+# Initialize HttpPac for auto-discovery (or via PAC_URL)
+http = HttpPac()
+
+# Build the service using the proxy-aware http object
+service = build('drive', 'v3', http=http)
+
+# All API calls will now automatically resolve proxies via PAC
+files = service.files().list().execute()
 ```
 
 ### CLI Tool
@@ -32,11 +58,14 @@ response, content = http.request("http://example.org")
 The package includes a CLI tool `pypac4http2` to resolve proxies for a given URL.
 
 ```bash
-# Resolve proxy using OS auto-discovery
+# Resolve proxy using OS auto-discovery (or PAC_URL env var if set)
 pypac4http2 https://google.com
 
 # Resolve proxy using a specific PAC URL
 pypac4http2 --pac-url http://example.com/proxy.pac https://google.com
+
+# Resolve proxy using a PAC JavaScript string
+pypac4http2 --pac-js "function FindProxyForURL(url, host) { return 'DIRECT'; }" https://google.com
 ```
 
 **Output Example:**

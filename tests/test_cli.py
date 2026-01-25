@@ -102,3 +102,34 @@ def test_cli_env_fallback(monkeypatch):
             output = captured_output.getvalue()
             assert "Proxy choice: ENV (envproxy:8080)" in output
             assert '"proxy_host": "envproxy"' in output
+
+
+def test_cli_pac_js(monkeypatch):
+    pac_js = 'function FindProxyForURL(url, host) { return "PROXY cli-js-proxy:8080"; }'
+    captured_output = StringIO()
+    monkeypatch.setattr(sys, "stdout", captured_output)
+
+    with patch("sys.argv", ["pypac4http2", "--pac-js", pac_js, "http://example.com"]):
+        main()
+
+    output = captured_output.getvalue()
+    assert "Proxy choice: PROXY cli-js-proxy:8080" in output
+    assert '"proxy_host": "cli-js-proxy"' in output
+
+
+def test_cli_pac_url_env_var(monkeypatch):
+    mock_pac = MagicMock()
+    mock_pac.find_proxy_for_url.return_value = "PROXY env-var-proxy:8080"
+
+    with patch("pypac4http2.cli.get_pac", return_value=mock_pac) as mock_get_pac:
+        with patch.dict("os.environ", {"PAC_URL": "http://env.pac"}):
+            captured_output = StringIO()
+            monkeypatch.setattr(sys, "stdout", captured_output)
+
+            with patch("sys.argv", ["pypac4http2", "http://example.com"]):
+                main()
+
+            mock_get_pac.assert_called_once_with(url="http://env.pac")
+            output = captured_output.getvalue()
+            assert "Proxy choice: PROXY env-var-proxy:8080" in output
+            assert '"proxy_host": "env-var-proxy"' in output
