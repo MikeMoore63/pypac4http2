@@ -46,13 +46,14 @@ import os
 from googleapiclient.discovery import build
 import google.auth
 from google.auth.transport.requests import Request
-from pypac import PACSession
+from pypac import PACSession, get_pac
 from pypac4http2 import HttpPac
 
 # 1. Use PACSession for authentication flows that use 'requests'
-# pypac.PACSession doesn't natively check PAC_URL, so we pass it explicitly if set
+# pypac.PACSession doesn't natively check PAC_URL, so we get the PAC file manually
 pac_url = os.environ.get("PAC_URL")
-auth_session = PACSession(url=pac_url) if pac_url else PACSession()
+pac = get_pac(url=pac_url) if pac_url else get_pac()
+auth_session = PACSession(pac=pac)
 auth_request = Request(session=auth_session)
 
 # 2. Get default credentials using the proxy-aware request
